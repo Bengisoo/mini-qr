@@ -88,3 +88,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for more details.
 This is a group project
 group members:
 ...
+6 people
