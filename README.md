@@ -89,6 +89,7 @@ This is a group project
 group members:
 Nurefsan Ergoren
 Fatma Muge Serın
+Betul Basar
 6 people
 
 Regular updates and improvements are being made to this project.
