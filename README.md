@@ -87,9 +87,13 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for more details.
 
 This is a group project
 group members:
-Nurefsan Ergoren
-Fatma Muge Serın
+Aslı Ayaz
+Asya Aydın
 Betul Basar
-6 people
+Fatma Muge Serın
+Nurefsan Ergoren
+Zehra Bengisu Doğan
+
+
 
 Regular updates and improvements are being made to this project.
