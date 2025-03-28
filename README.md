@@ -87,7 +87,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for more details.
 
 This is a group project
 group members:
-...
+Nurefsan Ergoren
 6 people
 
 Regular updates and improvements are being made to this project.
