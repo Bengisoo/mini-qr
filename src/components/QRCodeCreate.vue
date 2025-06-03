@@ -47,6 +47,7 @@ const width = ref()
 const height = ref()
 const margin = ref()
 const imageMargin = ref()
+const expirationTime = ref(0)
 
 watch(
   () => props.initialData,
@@ -56,6 +57,19 @@ watch(
     }
   }
 )
+
+// Add expiration time to QR code data
+const qrDataWithExpiration = computed(() => {
+  if (!expirationTime.value) return data.value
+  
+  const expirationDate = new Date()
+  expirationDate.setHours(expirationDate.getHours() + expirationTime.value)
+  
+  return JSON.stringify({
+    data: data.value,
+    expiresAt: expirationDate.toISOString()
+  })
+})
 
 const dotsOptionsColor = ref()
 const dotsOptionsType = ref()
@@ -108,7 +122,7 @@ const qrOptions = computed(() => ({
 }))
 
 const qrCodeProps = computed<StyledQRCodeProps>(() => ({
-  data: data.value,
+  data: qrDataWithExpiration.value,
   image: image.value,
   width: width.value,
   height: height.value,
@@ -1182,6 +1196,21 @@ const mainContentContainer = ref<HTMLElement | null>(null)
             type="number"
             placeholder="0"
             v-model="imageMargin"
+          />
+        </div>
+      </div>
+      <div class="flex w-full flex-col gap-4 sm:flex-row sm:gap-8">
+        <div class="w-full sm:w-1/2">
+          <label for="expiration-time">
+            {{ t('Expiration Time (hours)') }}
+          </label>
+          <input
+            class="text-input"
+            id="expiration-time"
+            type="number"
+            placeholder="0 (no expiration)"
+            v-model="expirationTime"
+            min="0"
           />
         </div>
       </div>
