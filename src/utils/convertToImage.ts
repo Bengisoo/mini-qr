@@ -1,5 +1,6 @@
 import domtoimage, { type Options } from 'dom-to-image'
 import { elementToSVG, inlineResources } from 'dom-to-svg'
+import html2canvas from 'html2canvas'
 
 const defaultOptions: Options = {
   width: 400,
@@ -36,54 +37,96 @@ const getResizeScaleToFit = (child: HTMLElement, width: number, height: number):
 export const IS_COPY_IMAGE_TO_CLIPBOARD_SUPPORTED =
   navigator.clipboard && navigator.clipboard.write != undefined
 
+// Memoize canvas creation to avoid recreating it for each operation
+let canvas: HTMLCanvasElement | null = null
+let ctx: CanvasRenderingContext2D | null = null
+
+const getCanvas = () => {
+  if (!canvas) {
+    canvas = document.createElement('canvas')
+    ctx = canvas.getContext('2d')
+  }
+  return { canvas, ctx }
+}
+
+// Optimize image export functions
 export async function copyImageToClipboard(
   element: HTMLElement,
-  options: Options,
-  borderRadius?: string
-) {
-  if (IS_COPY_IMAGE_TO_CLIPBOARD_SUPPORTED) {
-    const formattedOptions = getFormattedOptions(element, options, borderRadius)
-    console.debug('Converting to blob')
-    domtoimage.toBlob(element, formattedOptions).then((blob: Blob) => {
-      const item = new ClipboardItem({ [blob.type]: blob })
-      navigator.clipboard.write([item]).then(
-        () => {
-          console.log('Blob copied to clipboard')
-        },
-        (error) => {
-          console.error('Error copying blob to clipboard:', error)
-        }
-      )
-    })
+  options: { width: number; height: number }
+): Promise<void> {
+  if (!IS_COPY_IMAGE_TO_CLIPBOARD_SUPPORTED) {
+    throw new Error('Copy to clipboard is not supported in this browser')
   }
+
+  const { canvas, ctx } = getCanvas()
+  if (!ctx) throw new Error('Could not get canvas context')
+
+  // Set canvas size
+  canvas.width = options.width
+  canvas.height = options.height
+
+  // Draw element to canvas
+  const data = await html2canvas(element, {
+    width: options.width,
+    height: options.height,
+    scale: 1,
+    useCORS: true,
+    allowTaint: true
+  })
+
+  ctx.drawImage(data, 0, 0)
+
+  // Convert to blob and copy
+  const blob = await new Promise<Blob>((resolve) => canvas.toBlob((blob) => resolve(blob!), 'image/png'))
+  await navigator.clipboard.write([
+    new ClipboardItem({
+      'image/png': blob
+    })
+  ])
+}
+
+export function downloadPngElement(
+  element: HTMLElement,
+  fileName: string,
+  options: { width: number; height: number },
+  borderRadius?: string
+): void {
+  const { canvas, ctx } = getCanvas()
+  if (!ctx) throw new Error('Could not get canvas context')
+
+  // Set canvas size
+  canvas.width = options.width
+  canvas.height = options.height
+
+  // Draw element to canvas
+  html2canvas(element, {
+    width: options.width,
+    height: options.height,
+    scale: 1,
+    useCORS: true,
+    allowTaint: true
+  }).then((data) => {
+    ctx.drawImage(data, 0, 0)
+
+    // Apply border radius if specified
+    if (borderRadius) {
+      ctx.globalCompositeOperation = 'destination-in'
+      ctx.beginPath()
+      ctx.roundRect(0, 0, options.width, options.height, parseInt(borderRadius))
+      ctx.fill()
+    }
+
+    // Download
+    const link = document.createElement('a')
+    link.download = fileName
+    link.href = canvas.toDataURL('image/png')
+    link.click()
+  })
 }
 
 export async function getPngElement(element: HTMLElement, options: Options, borderRadius?: string) {
   const formattedOptions = getFormattedOptions(element, options, borderRadius)
   return domtoimage.toPng(element, formattedOptions)
-}
-
-export function downloadPngElement(
-  element: HTMLElement,
-  filename: string,
-  options: Options,
-  borderRadius?: string
-) {
-  getPngElement(element, options, borderRadius)
-    .then((dataUrl: string) => {
-      const link = document.createElement('a')
-      link.href = dataUrl
-      link.download = filename
-      link.click()
-    })
-    .catch((error: Error) => {
-      console.error('Error converting element to PNG:', error)
-    })
-}
-
-export async function getJpgElement(element: HTMLElement, options: Options, borderRadius?: string) {
-  const formattedOptions = getFormattedOptions(element, options, borderRadius)
-  return domtoimage.toJpeg(element, formattedOptions)
 }
 
 export function downloadJpgElement(
@@ -104,6 +147,36 @@ export function downloadJpgElement(
     })
 }
 
+export async function getJpgElement(element: HTMLElement, options: { width: number; height: number }, borderRadius?: string) {
+  const { canvas, ctx } = getCanvas()
+  if (!ctx) throw new Error('Could not get canvas context')
+
+  // Set canvas size
+  canvas.width = options.width
+  canvas.height = options.height
+
+  // Draw element to canvas
+  const data = await html2canvas(element, {
+    width: options.width,
+    height: options.height,
+    scale: 1,
+    useCORS: true,
+    allowTaint: true
+  })
+
+  ctx.drawImage(data, 0, 0)
+
+  // Apply border radius if specified
+  if (borderRadius) {
+    ctx.globalCompositeOperation = 'destination-in'
+    ctx.beginPath()
+    ctx.roundRect(0, 0, options.width, options.height, parseInt(borderRadius))
+    ctx.fill()
+  }
+
+  return canvas.toDataURL('image/jpeg', 0.9)
+}
+
 function applySvgOptions(svgDocument: Document, options: Options) {
   const svgElement = svgDocument.documentElement
   if (options.width) svgElement.setAttribute('width', options.width.toString())
@@ -115,43 +188,20 @@ function applySvgOptions(svgDocument: Document, options: Options) {
   }
 }
 
-export async function getSvgString(
-  element: HTMLElement,
-  options: Options,
-  borderRadius?: string
-): Promise<string> {
-  const formattedOptions = getFormattedOptions(element, options, borderRadius)
-  const svgDocument = elementToSVG(element)
-  await inlineResources(svgDocument.documentElement)
-  applySvgOptions(svgDocument, formattedOptions)
-  return new XMLSerializer().serializeToString(svgDocument)
+// Optimize SVG export
+export function getSvgString(element: HTMLElement): string {
+  const svg = element.querySelector('svg')
+  if (!svg) throw new Error('No SVG element found')
+  return svg.outerHTML
 }
 
-export async function getSvgElement(
-  element: HTMLElement,
-  options: Options,
-  borderRadius?: string
-): Promise<string> {
-  const svgString = await getSvgString(element, options, borderRadius)
-
-  // Convert SVG string to data URL
-  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgString)}`
-}
-
-export function downloadSvgElement(
-  element: HTMLElement,
-  filename: string,
-  options: Options,
-  borderRadius?: string
-) {
-  getSvgElement(element, options, borderRadius)
-    .then((dataUrl: string) => {
-      const link = document.createElement('a')
-      link.href = dataUrl
-      link.download = filename
-      link.click()
-    })
-    .catch((error: Error) => {
-      console.error('Error converting element to SVG:', error)
-    })
+export function downloadSvgElement(element: HTMLElement, fileName: string): void {
+  const svgString = getSvgString(element)
+  const blob = new Blob([svgString], { type: 'image/svg+xml' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.download = fileName
+  link.href = url
+  link.click()
+  URL.revokeObjectURL(url)
 }
