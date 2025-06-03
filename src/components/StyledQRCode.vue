@@ -12,7 +12,7 @@ import type {
   Options as StyledQRCodeProps
 } from 'qr-code-styling'
 import QRCodeStyling from 'qr-code-styling'
-import { onMounted, ref, watch, toRefs } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 
 const props = withDefaults(defineProps<StyledQRCodeProps>(), {
   data: undefined,
@@ -47,37 +47,24 @@ const props = withDefaults(defineProps<StyledQRCodeProps>(), {
   })
 })
 
-const { data, width, height, type, image, margin, dotsOptions, backgroundOptions, imageOptions, cornersSquareOptions, cornersDotOptions, qrOptions } = toRefs(props)
-
-const qrCodeContainer = ref<HTMLElement>()
-let QRCodeCanvasContainer: QRCodeStyling | null = null
-
-// Memoize QR code options to prevent unnecessary updates
-const getQRCodeOptions = () => ({
+const QRCodeCanvasContainer = new QRCodeStyling({
   ...props,
   image: props.image === null ? undefined : props.image
 })
+const qrCodeContainer = ref<HTMLElement>()
 
 onMounted(async () => {
-  QRCodeCanvasContainer = new QRCodeStyling(getQRCodeOptions())
-  if (qrCodeContainer.value) {
-    qrCodeContainer.value.innerHTML = ''
-    QRCodeCanvasContainer.append(qrCodeContainer.value)
-  }
+  QRCodeCanvasContainer.append(qrCodeContainer.value)
 })
 
-// Only watch for changes in specific props that affect QR code generation
 watch(
-  [data, width, height, type, image, margin, dotsOptions, backgroundOptions, imageOptions, cornersSquareOptions, cornersDotOptions, qrOptions],
+  () => props,
   () => {
-    if (QRCodeCanvasContainer) {
-      const options = getQRCodeOptions()
-      // Only update if options have actually changed
-      if (JSON.stringify(options) !== JSON.stringify(QRCodeCanvasContainer._options)) {
-        QRCodeCanvasContainer.update(options)
-      }
-    }
+    QRCodeCanvasContainer.update({
+      ...props,
+      image: props.image === null ? undefined : props.image
+    })
   },
-  { deep: true }
+  { deep: true, immediate: true }
 )
 </script>

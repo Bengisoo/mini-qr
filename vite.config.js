@@ -78,12 +78,5 @@ export default defineConfig({
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url))
     }
-  },
-  build: {
-    minify: true,
-    sourcemap: false,
-    rollupOptions: {
-      external: ['jszip', 'html5-qrcode', 'qr-code-styling']
-    }
   }
 })

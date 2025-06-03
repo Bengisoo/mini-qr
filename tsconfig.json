@@ -5,9 +5,7 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"]
-    },
-    "lib": ["ES2017", "DOM", "DOM.Iterable"],
-    "target": "ES2017"
+    }
   },
 
   "references": [

@@ -87,25 +87,25 @@ watch(
 const dotsOptions = computed(() => ({
   color: dotsOptionsColor.value,
   type: dotsOptionsType.value
-}), { cache: true })
+}))
 const cornersSquareOptions = computed(() => ({
   color: cornersSquareOptionsColor.value,
   type: cornersSquareOptionsType.value
-}), { cache: true })
+}))
 const cornersDotOptions = computed(() => ({
   color: cornersDotOptionsColor.value,
   type: cornersDotOptionsType.value
-}), { cache: true })
+}))
 const style = computed(() => ({
   borderRadius: styledBorderRadiusFormatted.value,
   background: styleBackground.value
-}), { cache: true })
+}))
 const imageOptions = computed(() => ({
   margin: imageMargin.value
-}), { cache: true })
+}))
 const qrOptions = computed(() => ({
   errorCorrectionLevel: errorCorrectionLevel.value
-}), { cache: true })
+}))
 
 const qrCodeProps = computed<StyledQRCodeProps>(() => ({
   data: data.value,
@@ -118,7 +118,7 @@ const qrCodeProps = computed<StyledQRCodeProps>(() => ({
   cornersDotOptions: cornersDotOptions.value,
   imageOptions: imageOptions.value,
   qrOptions: qrOptions.value
-}), { cache: true })
+}))
 
 function randomizeStyleSettings() {
   const dotTypes: DotType[] = [
@@ -160,27 +160,25 @@ watch(selectedPreset, () => {
     data.value = selectedPreset.value.data
   }
 
-  // Batch update all properties to reduce re-renders
-  const updates = {
-    image: selectedPreset.value.image,
-    width: selectedPreset.value.width,
-    height: selectedPreset.value.height,
-    margin: selectedPreset.value.margin,
-    imageMargin: selectedPreset.value.imageOptions.margin,
-    dotsOptionsColor: selectedPreset.value.dotsOptions.color,
-    dotsOptionsType: selectedPreset.value.dotsOptions.type,
-    cornersSquareOptionsColor: selectedPreset.value.cornersSquareOptions.color,
-    cornersSquareOptionsType: selectedPreset.value.cornersSquareOptions.type,
-    cornersDotOptionsColor: selectedPreset.value.cornersDotOptions.color,
-    cornersDotOptionsType: selectedPreset.value.cornersDotOptions.type,
-    styleBorderRadius: getNumericCSSValue(selectedPreset.value.style.borderRadius as string),
-    styleBackground: selectedPreset.value.style.background,
-    includeBackground: selectedPreset.value.style.background !== 'transparent',
-    errorCorrectionLevel: selectedPreset.value.qrOptions?.errorCorrectionLevel || 'Q'
-  }
-
-  Object.assign(props, updates)
-}, { deep: true })
+  image.value = selectedPreset.value.image
+  width.value = selectedPreset.value.width
+  height.value = selectedPreset.value.height
+  margin.value = selectedPreset.value.margin
+  imageMargin.value = selectedPreset.value.imageOptions.margin
+  dotsOptionsColor.value = selectedPreset.value.dotsOptions.color
+  dotsOptionsType.value = selectedPreset.value.dotsOptions.type
+  cornersSquareOptionsColor.value = selectedPreset.value.cornersSquareOptions.color
+  cornersSquareOptionsType.value = selectedPreset.value.cornersSquareOptions.type
+  cornersDotOptionsColor.value = selectedPreset.value.cornersDotOptions.color
+  cornersDotOptionsType.value = selectedPreset.value.cornersDotOptions.type
+  styleBorderRadius.value = getNumericCSSValue(selectedPreset.value.style.borderRadius as string)
+  styleBackground.value = selectedPreset.value.style.background
+  includeBackground.value = selectedPreset.value.style.background !== 'transparent'
+  errorCorrectionLevel.value =
+    selectedPreset.value.qrOptions && selectedPreset.value.qrOptions.errorCorrectionLevel
+      ? selectedPreset.value.qrOptions.errorCorrectionLevel
+      : 'Q'
+})
 
 const LAST_LOADED_LOCALLY_PRESET_KEY = 'Last saved locally'
 const LOADED_FROM_FILE_PRESET_KEY = 'Loaded from file'
@@ -281,6 +279,7 @@ function downloadQRImageAsJpg() {
 }
 
 function uploadImage() {
+  console.debug('Uploading image')
   const imageInput = document.createElement('input')
   imageInput.type = 'file'
   imageInput.accept = 'image/*'
@@ -311,6 +310,7 @@ function createQrConfig() {
 }
 
 function downloadQRConfig() {
+  console.debug('Downloading QR code config')
   const qrCodeConfig = createQrConfig()
   const qrCodeConfigString = JSON.stringify(qrCodeConfig)
   const qrCodeConfigBlob = new Blob([qrCodeConfigString], { type: 'application/json' })
@@ -345,6 +345,7 @@ function loadQRConfig(jsonString: string, key?: string) {
 }
 
 function loadQrConfigFromFile() {
+  console.debug('Loading QR code config')
   const qrCodeConfigInput = document.createElement('input')
   qrCodeConfigInput.type = 'file'
   qrCodeConfigInput.accept = 'application/json'
@@ -367,6 +368,7 @@ function loadQrConfigFromFile() {
 function loadQRConfigFromLocalStorage() {
   const qrCodeConfigString = localStorage.getItem('qrCodeConfig')
   if (qrCodeConfigString) {
+    console.debug('Loading QR code config from local storage')
     loadQRConfig(qrCodeConfigString, LAST_LOADED_LOCALLY_PRESET_KEY)
   } else {
     selectedPreset.value = { ...defaultPreset }
@@ -462,6 +464,7 @@ const onBatchInputFileUpload = (event: Event) => {
     if (ignoreHeaderRow.value && links.length > 0) {
       links.shift()
     }
+    console.debug('links', links)
     dataStringsFromCsv.value = links
     isValidCsv.value = true
   }
@@ -550,6 +553,7 @@ async function generateBatchQRCodes(format: 'png' | 'svg' | 'jpg') {
       isBatchExportSuccess.value = true
     })
   } catch (error) {
+    console.error('Error generating batch QR codes', error)
     isBatchExportSuccess.value = false
   } finally {
     resetBatchExportProgress()

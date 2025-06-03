@@ -54,6 +54,10 @@ const useDarkModePreference = () => {
   }
 
   function updateDarkModePreferenceIfSystemPreferenceChanges() {
+    console.log(
+      'updateDarkModePreferenceIfSystemPreferenceChanges',
+      isDarkModePreferenceSetBySystem.value
+    )
     if (isDarkModePreferenceSetBySystem.value) {
       updateUiBasedOnDarkMode()
     }
