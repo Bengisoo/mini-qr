@@ -122,5 +122,8 @@
   "Camera is already in use by another application": "Camera is already in use by another application",
   "Could not start QR code scanner": "Could not start QR code scanner",
   "Cancel": "Cancel",
-  "Error checking camera availability": "Error checking camera availability"
+  "Error checking camera availability": "Error checking camera availability",
+  "Save to history": "Save to history",
+  "Show previous generated QRs": "Show previous generated QRs",
+  "Hide previous generated QRs": "Hide previous generated QRs"
 }
