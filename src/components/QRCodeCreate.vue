@@ -276,19 +276,62 @@ const handleExport = async (exportFn: () => Promise<void>) => {
 
 // Modify existing export functions
 const downloadAsPNG = async () => {
-  await handleExport(() => downloadPngElement(elementToBeExported.value, options.value))
+  await handleExport(
+    () =>
+      new Promise<void>((resolve) => {
+        downloadPngElement(
+          elementToBeExported.value,
+          'qr-code.png',
+          options.value,
+          styledBorderRadiusFormatted.value
+        )
+        resolve()
+      })
+  )
 }
 
 const downloadAsJPG = async () => {
-  await handleExport(() => downloadJpgElement(elementToBeExported.value, options.value))
+  await handleExport(
+    () =>
+      new Promise<void>((resolve) => {
+        downloadJpgElement(
+          elementToBeExported.value,
+          'qr-code.jpg',
+          options.value,
+          styledBorderRadiusFormatted.value
+        )
+        resolve()
+      })
+  )
 }
 
 const downloadAsSVG = async () => {
-  await handleExport(() => downloadSvgElement(elementToBeExported.value))
+  await handleExport(
+    () =>
+      new Promise<void>((resolve) => {
+        downloadSvgElement(
+          elementToBeExported.value,
+          'qr-code.svg',
+          options.value,
+          styledBorderRadiusFormatted.value
+        )
+        resolve()
+      })
+  )
 }
 
 const copyToClipboard = async () => {
-  await handleExport(() => copyImageToClipboard(elementToBeExported.value))
+  await handleExport(
+    () =>
+      new Promise<void>((resolve) => {
+        copyImageToClipboard(
+          elementToBeExported.value,
+          options.value,
+          styledBorderRadiusFormatted.value
+        )
+        resolve()
+      })
+  )
 }
 
 function uploadImage() {
@@ -582,6 +625,118 @@ const isExportButtonDisabled = computed(() => {
 })
 
 const mainContentContainer = ref<HTMLElement | null>(null)
+
+// Add QR History Feature
+interface QRHistoryEntry {
+  id: number
+  config: ReturnType<typeof createQrConfig>
+  timestamp: number
+}
+
+const HISTORY_KEY = 'qr_code_history'
+const qrHistory = ref<QRHistoryEntry[]>([])
+const showHistory = ref(false)
+const saveHistoryBtnActive = ref(false)
+const showHistoryBtnActive = ref(false)
+let nextHistoryId = 1
+
+const sortedQrHistory = computed(() => [...qrHistory.value].sort((a, b) => b.id - a.id))
+
+function getComparableQRSignature(config: any) {
+  // Only compare essential QR code properties
+  return JSON.stringify({
+    props: config.props,
+    style: config.style
+  })
+}
+
+function isCurrentQRInHistory() {
+  const currentConfig = createQrConfig()
+  const currentSignature = getComparableQRSignature(currentConfig)
+  return qrHistory.value.some(
+    (entry) => getComparableQRSignature(entry.config) === currentSignature
+  )
+}
+
+function saveCurrentQRToHistory() {
+  // Save current QR config to history with new id
+  const config = createQrConfig()
+  qrHistory.value.push({
+    id: nextHistoryId++,
+    config,
+    timestamp: Date.now()
+  })
+  saveHistory()
+}
+
+function handleSaveToHistory() {
+  saveHistoryBtnActive.value = true
+  saveCurrentQRToHistory()
+  setTimeout(() => (saveHistoryBtnActive.value = false), 150)
+}
+
+function handleShowHistoryToggle() {
+  showHistoryBtnActive.value = true
+  showHistory.value = !showHistory.value
+  setTimeout(() => (showHistoryBtnActive.value = false), 150)
+}
+
+function loadHistory() {
+  const raw = localStorage.getItem(HISTORY_KEY)
+  if (raw) {
+    try {
+      const arr = JSON.parse(raw)
+      qrHistory.value = Array.isArray(arr) ? arr : []
+      // Set nextHistoryId to max id + 1
+      nextHistoryId =
+        qrHistory.value.length > 0 ? Math.max(...qrHistory.value.map((e) => e.id)) + 1 : 1
+    } catch {
+      qrHistory.value = []
+      nextHistoryId = 1
+    }
+  }
+}
+
+function saveHistory() {
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(qrHistory.value))
+}
+
+function deleteQRFromHistory(id: number) {
+  if (confirm(t('Are you sure you want to delete this QR from history?'))) {
+    qrHistory.value = qrHistory.value.filter((entry) => entry.id !== id)
+    saveHistory()
+  }
+}
+
+function loadQRFromHistory(entry: QRHistoryEntry) {
+  // Only save current QR if it is not already in history
+  if (!isCurrentQRInHistory()) {
+    saveCurrentQRToHistory()
+  }
+  // Load the selected QR config
+  const { props, style } = entry.config
+  // Set all relevant fields, with fallbacks
+  data.value = props.data || ''
+  image.value = props.image || ''
+  width.value = props.width || 200
+  height.value = props.height || 200
+  margin.value = props.margin || 0
+  imageMargin.value = props.imageOptions?.margin || 0
+  dotsOptionsColor.value = props.dotsOptions?.color || '#000000'
+  dotsOptionsType.value = props.dotsOptions?.type || 'dots'
+  cornersSquareOptionsColor.value = props.cornersSquareOptions?.color || '#000000'
+  cornersSquareOptionsType.value = props.cornersSquareOptions?.type || 'square'
+  cornersDotOptionsColor.value = props.cornersDotOptions?.color || '#000000'
+  cornersDotOptionsType.value = props.cornersDotOptions?.type || 'dot'
+  styleBorderRadius.value = getNumericCSSValue(style?.borderRadius)
+  styleBackground.value = style?.background || '#ffffff'
+  includeBackground.value = style?.background !== 'transparent'
+  errorCorrectionLevel.value = props.qrOptions?.errorCorrectionLevel || 'Q'
+}
+
+onMounted(() => {
+  loadHistory()
+})
 </script>
 
 <template>
@@ -685,7 +840,25 @@ const mainContentContainer = ref<HTMLElement | null>(null)
             />
           </div>
         </div>
-        <div class="mt-4 flex flex-col items-center gap-8">
+        <!-- Save to history button -->
+        <button
+          id="save-qr-history-button"
+          class="button mb-2 mt-4 flex w-full flex-row items-center gap-1 shadow-md transition-colors duration-150 active:translate-y-0.5 active:bg-gray-800 active:shadow-inner"
+          :class="{ 'bg-gray-700 text-white': saveHistoryBtnActive }"
+          @click="handleSaveToHistory"
+          :title="t('Save to history')"
+          :aria-label="t('Save to history')"
+          style="will-change: transform"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">
+            <path
+              fill="currentColor"
+              d="M17 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2m0 16H7V5h10m-5 2a2 2 0 1 1 0 4a2 2 0 0 1 0-4m0 10.2c-2.5 0-4.71-1.28-6-3.22c.03-2 4-3.1 6-3.1s5.97 1.1 6 3.1c-1.29 1.94-3.5 3.22-6 3.22Z"
+            />
+          </svg>
+          <p>{{ t('Save to history') }}</p>
+        </button>
+        <div class="mt-2 flex flex-col items-center gap-8">
           <div class="flex flex-col items-center justify-center gap-3">
             <button
               v-if="IS_COPY_IMAGE_TO_CLIPBOARD_SUPPORTED && exportMode !== ExportMode.Batch"
@@ -855,6 +1028,70 @@ const mainContentContainer = ref<HTMLElement | null>(null)
                   </g>
                 </svg>
               </button>
+            </div>
+            <!-- Show/Hide previous QRs button -->
+            <button
+              class="button mt-2 w-full shadow-md transition-colors duration-150 active:translate-y-0.5 active:bg-gray-800 active:shadow-inner"
+              :class="{ 'bg-gray-700 text-white': showHistoryBtnActive }"
+              @click="handleShowHistoryToggle"
+            >
+              {{
+                showHistory ? t('Hide previous generated QRs') : t('Show previous generated QRs')
+              }}
+            </button>
+            <!-- QR History Section -->
+            <div
+              v-if="showHistory"
+              class="mt-2 max-h-60 w-full overflow-y-auto rounded border bg-gray-50 p-2 dark:bg-gray-800"
+              style="min-width: 0"
+            >
+              <div v-if="sortedQrHistory.length === 0" class="text-center text-gray-500">
+                {{ t('No previous QRs saved.') }}
+              </div>
+              <ul v-else class="space-y-2">
+                <li
+                  v-for="entry in sortedQrHistory"
+                  :key="entry.id"
+                  class="flex items-center gap-2"
+                >
+                  <!-- Delete button -->
+                  <button
+                    class="rounded p-1 transition-colors hover:bg-red-100 dark:hover:bg-red-900"
+                    style="margin-right: 2px"
+                    @click="deleteQRFromHistory(entry.id)"
+                    title="Delete QR"
+                    aria-label="Delete QR"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <polyline points="3 6 5 6 21 6" />
+                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h2" />
+                      <line x1="10" y1="11" x2="10" y2="17" />
+                      <line x1="14" y1="11" x2="14" y2="17" />
+                    </svg>
+                  </button>
+                  <button class="link text-blue-600 underline" @click="loadQRFromHistory(entry)">
+                    {{ t('QR') }} #{{ entry.id }}
+                  </button>
+                  <span class="text-xs text-gray-400">{{
+                    new Date(entry.timestamp).toLocaleString()
+                  }}</span>
+                  <span
+                    class="inline-block max-w-[120px] overflow-x-auto truncate whitespace-nowrap align-bottom text-xs"
+                    style="vertical-align: bottom"
+                    >{{ entry.config.props.data }}</span
+                  >
+                </li>
+              </ul>
             </div>
           </div>
         </div>
