@@ -3,6 +3,7 @@ import { Html5Qrcode } from 'html5-qrcode'
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import QRCodeCameraScanner from './QRCodeCameraScanner.vue'
+import { qrLogger } from '@/utils/qrLogger'
 
 defineEmits<{
   'create-qr': [data: string]
@@ -182,9 +183,24 @@ const copyToClipboard = async () => {
   }
 }
 
+// Add logging for QR code scanning
+const logQRScan = (success: boolean, error?: string) => {
+  qrLogger.logQREvent({
+    type: 'scan',
+    data: capturedData.value,
+    success,
+    metadata: {
+      format: qrCodeType.value,
+      error
+    }
+  })
+}
+
+// Modify onQRDetected to include logging
 const onQRDetected = (data: string) => {
   capturedData.value = data
   showCameraScanner.value = false
+  logQRScan(true)
 }
 
 const onCameraScannerCancel = () => {
@@ -209,6 +225,7 @@ const fileInput = ref<HTMLInputElement | null>(null)
 const isLoading = ref(false)
 const isDraggingOver = ref(false)
 
+// Modify handleFileUpload to include logging
 const handleFileUpload = (event: Event) => {
   let file: File | null = null
 
@@ -238,11 +255,13 @@ const handleFileUpload = (event: Event) => {
     .then((decodedText) => {
       capturedData.value = decodedText
       isLoading.value = false
+      logQRScan(true)
     })
     .catch((err) => {
       console.error('Error scanning file:', err)
       errorMessage.value = t('No QR code found in the image.')
       isLoading.value = false
+      logQRScan(false, 'No QR code found in the image')
     })
 }
 

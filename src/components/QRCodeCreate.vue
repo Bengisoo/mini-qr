@@ -27,6 +27,7 @@ import {
 import { computed, onMounted, ref, watch } from 'vue'
 import 'vue-i18n'
 import { useI18n } from 'vue-i18n'
+import { qrLogger } from '@/utils/qrLogger'
 
 // Define props
 const props = defineProps<{
@@ -61,10 +62,10 @@ watch(
 // Add expiration time to QR code data
 const qrDataWithExpiration = computed(() => {
   if (!expirationTime.value) return data.value
-  
+
   const expirationDate = new Date()
   expirationDate.setHours(expirationDate.getHours() + expirationTime.value)
-  
+
   return JSON.stringify({
     data: data.value,
     expiresAt: expirationDate.toISOString()
@@ -249,47 +250,45 @@ const options = computed(() => ({
 const exportElementRef = ref<HTMLElement | null>(null)
 const elementToBeExported = computed(() => exportElementRef.value as HTMLElement)
 
-async function copyQRToClipboard() {
-  await copyImageToClipboard(elementToBeExported.value, options.value)
+// Add logging for QR code creation
+const logQRCreation = (success: boolean, error?: string) => {
+  qrLogger.logQREvent({
+    type: 'create',
+    data: data.value,
+    success,
+    metadata: {
+      format: dotsOptionsType.value,
+      error
+    }
+  })
 }
 
-function downloadQRImageAsPng() {
-  if (exportMode.value === ExportMode.Single) {
-    downloadPngElement(
-      elementToBeExported.value,
-      'qr-code.png',
-      options.value,
-      styledBorderRadiusFormatted.value
-    )
-  } else {
-    generateBatchQRCodes('png')
+// Add logging to export functions
+const handleExport = async (exportFn: () => Promise<void>) => {
+  try {
+    await exportFn()
+    logQRCreation(true)
+  } catch (error) {
+    logQRCreation(false, error instanceof Error ? error.message : 'Unknown error')
+    throw error
   }
 }
 
-function downloadQRImageAsSvg() {
-  if (exportMode.value === ExportMode.Single) {
-    downloadSvgElement(
-      elementToBeExported.value,
-      'qr-code.svg',
-      options.value,
-      styledBorderRadiusFormatted.value
-    )
-  } else {
-    generateBatchQRCodes('svg')
-  }
+// Modify existing export functions
+const downloadAsPNG = async () => {
+  await handleExport(() => downloadPngElement(elementToBeExported.value, options.value))
 }
 
-function downloadQRImageAsJpg() {
-  if (exportMode.value === ExportMode.Single) {
-    downloadJpgElement(
-      elementToBeExported.value,
-      'qr-code.jpg',
-      { ...options.value, bgcolor: 'white' },
-      styledBorderRadiusFormatted.value
-    )
-  } else {
-    generateBatchQRCodes('jpg')
-  }
+const downloadAsJPG = async () => {
+  await handleExport(() => downloadJpgElement(elementToBeExported.value, options.value))
+}
+
+const downloadAsSVG = async () => {
+  await handleExport(() => downloadSvgElement(elementToBeExported.value))
+}
+
+const copyToClipboard = async () => {
+  await handleExport(() => copyImageToClipboard(elementToBeExported.value))
 }
 
 function uploadImage() {
@@ -692,7 +691,7 @@ const mainContentContainer = ref<HTMLElement | null>(null)
               v-if="IS_COPY_IMAGE_TO_CLIPBOARD_SUPPORTED && exportMode !== ExportMode.Batch"
               id="copy-qr-image-button"
               class="button flex w-fit max-w-full flex-row items-center gap-1"
-              @click="copyQRToClipboard"
+              @click="copyToClipboard"
               :disabled="isExportButtonDisabled"
               :title="
                 isExportButtonDisabled
@@ -769,7 +768,7 @@ const mainContentContainer = ref<HTMLElement | null>(null)
               <button
                 id="download-qr-image-button-png"
                 class="button"
-                @click="downloadQRImageAsPng"
+                @click="downloadAsPNG"
                 :disabled="isExportButtonDisabled"
                 :title="
                   isExportButtonDisabled
@@ -799,7 +798,7 @@ const mainContentContainer = ref<HTMLElement | null>(null)
               <button
                 id="download-qr-image-button-jpg"
                 class="button"
-                @click="downloadQRImageAsJpg"
+                @click="downloadAsJPG"
                 :disabled="isExportButtonDisabled"
                 :title="
                   isExportButtonDisabled
@@ -829,7 +828,7 @@ const mainContentContainer = ref<HTMLElement | null>(null)
               <button
                 id="download-qr-image-button-svg"
                 class="button"
-                @click="downloadQRImageAsSvg"
+                @click="downloadAsSVG"
                 :disabled="isExportButtonDisabled"
                 :title="
                   isExportButtonDisabled

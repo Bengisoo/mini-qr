@@ -3,6 +3,7 @@ import LanguageSelector from '@/components/LanguageSelector.vue'
 import MobileMenu from '@/components/MobileMenu.vue'
 import QRCodeScan from '@/components/QRCodeScan.vue'
 import QRCodeCreate from '@/components/QRCodeCreate.vue'
+import QRCodeStats from '@/components/QRCodeStats.vue'
 import useDarkModePreference from '@/utils/useDarkModePreference'
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -281,6 +282,11 @@ const isModeToggleDisabled = computed(() => {
         <div v-else class="flex flex-col items-center justify-center py-8">
           <QRCodeScan ref="qrCodeScanRef" @create-qr="useCapturedDataInCreateMode" />
         </div>
+      </div>
+
+      <!-- Add QR Code Stats -->
+      <div class="mx-auto mt-8 w-full max-w-3xl px-4">
+        <QRCodeStats />
       </div>
     </div>
   </main>
