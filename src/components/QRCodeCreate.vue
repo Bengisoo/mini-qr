@@ -135,6 +135,27 @@ const qrCodeProps = computed<StyledQRCodeProps>(() => ({
   qrOptions: qrOptions.value
 }))
 
+function validateInput(): boolean {
+  if (!data.value || data.value.trim() === '') {
+    alert(t('Please enter data to encode'))
+    return false
+  }
+
+  const byteLength = new TextEncoder().encode(qrDataWithExpiration.value).length
+  if (byteLength > 2953) {
+    alert(t('QR code data exceeds maximum size limit of 2953 bytes'))
+    return false
+  }
+
+  const urlRegex = /^(https?:\/\/)?[\w.-]+\.\w{2,}/
+  if (!urlRegex.test(data.value)) {
+    alert(t('Please enter a valid URL'))
+    return false
+  }
+
+  return true
+}
+
 function randomizeStyleSettings() {
   const dotTypes: DotType[] = [
     'dots',
@@ -276,6 +297,7 @@ const handleExport = async (exportFn: () => Promise<void>) => {
 
 // Modify existing export functions
 const downloadAsPNG = async () => {
+  if (!validateInput()) return
   await handleExport(
     () =>
       new Promise<void>((resolve) => {
@@ -291,6 +313,7 @@ const downloadAsPNG = async () => {
 }
 
 const downloadAsJPG = async () => {
+  if (!validateInput()) return
   await handleExport(
     () =>
       new Promise<void>((resolve) => {
@@ -306,6 +329,7 @@ const downloadAsJPG = async () => {
 }
 
 const downloadAsSVG = async () => {
+  if (!validateInput()) return
   await handleExport(
     () =>
       new Promise<void>((resolve) => {
@@ -321,6 +345,7 @@ const downloadAsSVG = async () => {
 }
 
 const copyToClipboard = async () => {
+  if (!validateInput()) return
   await handleExport(
     () =>
       new Promise<void>((resolve) => {
@@ -366,6 +391,7 @@ function createQrConfig() {
 }
 
 function downloadQRConfig() {
+  if (!validateInput()) return
   console.debug('Downloading QR code config')
   const qrCodeConfig = createQrConfig()
   const qrCodeConfigString = JSON.stringify(qrCodeConfig)
@@ -670,6 +696,7 @@ function saveCurrentQRToHistory() {
 }
 
 function handleSaveToHistory() {
+  if (!validateInput()) return
   saveHistoryBtnActive.value = true
   saveCurrentQRToHistory()
   setTimeout(() => (saveHistoryBtnActive.value = false), 150)
