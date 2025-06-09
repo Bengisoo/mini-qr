@@ -28,6 +28,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import 'vue-i18n'
 import { useI18n } from 'vue-i18n'
 import { qrLogger } from '@/utils/qrLogger'
+import axios from 'axios'
 
 // Define props
 const props = defineProps<{
@@ -135,6 +136,61 @@ const qrCodeProps = computed<StyledQRCodeProps>(() => ({
   qrOptions: qrOptions.value
 }))
 
+// Add URL shortening state and functions
+const isShorteningUrl = ref(false)
+const showUrlLengthMessage = ref(false)
+const urlLengthMessage = ref('')
+
+async function shortenUrl(url: string): Promise<string> {
+  try {
+    const response = await axios.get(
+      `https://tinyurl.com/api-create.php?url=${encodeURIComponent(url)}`
+    )
+    return response.data
+  } catch (error) {
+    console.error('Error shortening URL:', error)
+    throw new Error(t('Failed to shorten URL'))
+  }
+}
+
+async function handleUrlShortening() {
+  if (!data.value) {
+    alert(t('Please enter a URL first'))
+    return
+  }
+
+  const urlRegex = /^(https?:\/\/)?[\w.-]+\.\w{2,}/
+  if (!urlRegex.test(data.value)) {
+    alert(t('Please enter a valid URL'))
+    return
+  }
+
+  if (data.value.length <= 40) {
+    showUrlLengthMessage.value = true
+    urlLengthMessage.value = t('URL is short enough')
+    setTimeout(() => {
+      showUrlLengthMessage.value = false
+    }, 3000)
+    return
+  }
+
+  try {
+    isShorteningUrl.value = true
+    const shortenedUrl = await shortenUrl(data.value)
+    data.value = shortenedUrl
+    showUrlLengthMessage.value = true
+    urlLengthMessage.value = t('URL shortened successfully')
+    setTimeout(() => {
+      showUrlLengthMessage.value = false
+    }, 3000)
+  } catch (error) {
+    alert(error instanceof Error ? error.message : t('Failed to shorten URL'))
+  } finally {
+    isShorteningUrl.value = false
+  }
+}
+
+// Modify validateInput function to remove URL validation since we handle it in handleUrlShortening
 function validateInput(): boolean {
   if (!data.value || data.value.trim() === '') {
     alert(t('Please enter data to encode'))
@@ -144,12 +200,6 @@ function validateInput(): boolean {
   const byteLength = new TextEncoder().encode(qrDataWithExpiration.value).length
   if (byteLength > 2953) {
     alert(t('QR code data exceeds maximum size limit of 2953 bytes'))
-    return false
-  }
-
-  const urlRegex = /^(https?:\/\/)?[\w.-]+\.\w{2,}/
-  if (!urlRegex.test(data.value)) {
-    alert(t('Please enter a valid URL'))
     return false
   }
 
@@ -1190,16 +1240,51 @@ onMounted(() => {
                 </div>
               </div>
             </div>
-            <textarea
-              v-if="exportMode === ExportMode.Single"
-              name="data"
-              class="text-input"
-              id="data"
-              :placeholder="t('data to encode e.g. a URL or a string')"
-              v-model="data"
-            />
-            <template v-else>
-              <template v-if="!inputFileForBatchEncoding">
+
+            <!-- Single export mode -->
+            <div v-if="exportMode === ExportMode.Single" class="relative">
+              <textarea
+                name="data"
+                class="text-input"
+                id="data"
+                :placeholder="t('data to encode e.g. a URL or a string')"
+                v-model="data"
+              />
+              <button
+                class="absolute right-2 top-2 flex items-center gap-1 rounded bg-zinc-100 px-2 py-1 text-sm transition-colors hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700"
+                @click="handleUrlShortening"
+                :disabled="isShorteningUrl"
+                :title="t('Shorten URL')"
+              >
+                <svg
+                  v-if="!isShorteningUrl"
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    fill="currentColor"
+                    d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1M8 13h8v-2H8zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5"
+                  />
+                </svg>
+                <div
+                  v-else
+                  class="size-4 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-600"
+                ></div>
+                {{ t('Shorten URL') }}
+              </button>
+              <div
+                v-if="showUrlLengthMessage"
+                class="absolute inset-x-0 top-full mt-1 rounded bg-zinc-100 p-2 text-center text-sm dark:bg-zinc-800"
+              >
+                {{ urlLengthMessage }}
+              </div>
+            </div>
+
+            <!-- Batch export mode -->
+            <div v-else>
+              <div v-if="!inputFileForBatchEncoding">
                 <button
                   class="flex items-center justify-center rounded-lg border-2 border-dashed border-gray-300 p-1 py-4 text-center text-input"
                   :aria-label="t('Click to select a text or CSV file containing data to encode')"
@@ -1241,7 +1326,7 @@ onMounted(() => {
                     </svg>
                   </a>
                 </p>
-              </template>
+              </div>
               <div v-else-if="isValidCsv" class="p-4 text-center">
                 <div v-if="isBatchExportSuccess">
                   <p>{{ $t('QR codes have been successfully exported.') }}</p>
@@ -1283,7 +1368,7 @@ onMounted(() => {
               <div v-else class="p-4 text-center text-red-500">
                 <p>{{ $t('Invalid CSV') }}</p>
               </div>
-            </template>
+            </div>
           </div>
 
           <div class="w-full sm:w-1/3 sm:border-l-2 sm:border-gray-300 sm:pl-4">
