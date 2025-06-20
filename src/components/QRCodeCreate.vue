@@ -16,14 +16,6 @@ import {
 import { getNumericCSSValue } from '@/utils/formatting'
 import { allPresets, type Preset } from '@/utils/presets'
 import { useMediaQuery } from '@vueuse/core'
-import JSZip from 'jszip'
-import {
-  type CornerDotType,
-  type CornerSquareType,
-  type DotType,
-  type ErrorCorrectionLevel,
-  type Options as StyledQRCodeProps
-} from 'qr-code-styling'
 import { computed, onMounted, ref, watch } from 'vue'
 import 'vue-i18n'
 import { useI18n } from 'vue-i18n'
@@ -640,6 +632,7 @@ const createZipFile = (
 }
 async function generateBatchQRCodes(format: 'png' | 'svg' | 'jpg') {
   isExportingBatchQRs.value = true
+  const JSZip = (await import('jszip')).default
   const zip = new JSZip()
   let numQrCodesCreated = 0
 

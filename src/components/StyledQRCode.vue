@@ -12,7 +12,8 @@ import type {
   Options as StyledQRCodeProps
 } from 'qr-code-styling'
 import QRCodeStyling from 'qr-code-styling'
-import { onMounted, ref, watch } from 'vue'
+import { onMounted, ref, watch, toRefs, nextTick } from 'vue'
+import debounce from 'lodash.debounce'
 
 const props = withDefaults(defineProps<StyledQRCodeProps>(), {
   data: undefined,
@@ -47,24 +48,26 @@ const props = withDefaults(defineProps<StyledQRCodeProps>(), {
   })
 })
 
+const { data, width, height, type, image, margin, dotsOptions, backgroundOptions, imageOptions, cornersSquareOptions, cornersDotOptions, qrOptions } = toRefs(props)
+
 const QRCodeCanvasContainer = new QRCodeStyling({
   ...props,
   image: props.image === null ? undefined : props.image
 })
 const qrCodeContainer = ref<HTMLElement>()
 
+const updateQRCode = debounce(() => {
+  QRCodeCanvasContainer.update({
+    ...props,
+    image: props.image === null ? undefined : props.image
+  })
+}, 150)
+
 onMounted(async () => {
   QRCodeCanvasContainer.append(qrCodeContainer.value)
 })
 
-watch(
-  () => props,
-  () => {
-    QRCodeCanvasContainer.update({
-      ...props,
-      image: props.image === null ? undefined : props.image
-    })
-  },
-  { deep: true, immediate: true }
-)
+watch([
+  data, width, height, type, image, margin, dotsOptions, backgroundOptions, imageOptions, cornersSquareOptions, cornersDotOptions, qrOptions
+], updateQRCode, { deep: true })
 </script>
