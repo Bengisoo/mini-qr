@@ -21,6 +21,14 @@ import 'vue-i18n'
 import { useI18n } from 'vue-i18n'
 import { qrLogger } from '@/utils/qrLogger'
 import axios from 'axios'
+import type {
+  DotType,
+  CornerSquareType,
+  CornerDotType,
+  ErrorCorrectionLevel,
+  Options as StyledQRCodeProps
+} from 'qr-code-styling'
+import JSZip from 'jszip'
 
 // Define props
 const props = defineProps<{
@@ -728,6 +736,9 @@ function isCurrentQRInHistory() {
 }
 
 function saveCurrentQRToHistory() {
+  if (isCurrentQRInHistory()) {
+    return
+  }
   // Save current QR config to history with new id
   const config = createQrConfig()
   qrHistory.value.push({
