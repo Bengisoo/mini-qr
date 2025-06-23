@@ -202,6 +202,11 @@ function validateInput(): boolean {
     alert(t('QR code data exceeds maximum size limit of 2953 bytes'))
     return false
   }
+  const urlRegex = /^(https?:\/\/)?[\w.-]+\.\w{2,}/
+  if (!urlRegex.test(data.value)) {
+    alert(t('Please enter a valid URL'))
+    return false
+  }
 
   return true
 }
